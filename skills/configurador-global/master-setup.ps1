@@ -1,27 +1,41 @@
-# SCRIPT DE SINCRONIZACIÓN GLOBAL - ADSO
-# Ejecuta este script para preparar un entorno nuevo según las reglas maestras.
+param (
+    [string]$TargetProject = ""
+)
 
-# 1. Configurar Identidad Global
-Write-Host "Configurando Git Global..." -ForegroundColor Cyan
-git config --global user.name "modusaxon-hub"
-git config --global user.email "modusaxon@gmail.com"
-git config --global credential.helper manager
+# 0. Detectar Proyecto Objetivo
+if ([string]::IsNullOrWhiteSpace($TargetProject)) {
+    $TargetProject = Get-Location
+}
 
-# 2. Configurar Directorios Seguros
-Write-Host "Configurando Directorios Seguros..." -ForegroundColor Cyan
-git config --global --add safe.directory "D:/Documentos/Proyectos ADSO/*"
+if (!(Test-Path $TargetProject)) {
+    Write-Host "Error: El directorio '$TargetProject' no existe." -ForegroundColor Red
+    exit 1
+}
 
-# 3. Crear Enlaces Simbólicos para XAMPP
-Write-Host "Configurando Enlaces Simbólicos para XAMPP..." -ForegroundColor Cyan
-$projects = @("modus_axon", "manuel_pertuz", "despensa_inteligente")
-foreach ($proj in $projects) {
-    $linkPath = "C:\xampp\htdocs\$proj"
-    $targetPath = "D:\Documentos\Proyectos ADSO\$proj"
-    if (!(Test-Path $linkPath)) {
-        New-Item -ItemType SymbolicLink -Path $linkPath -Target $targetPath -Force
-        Write-Host "Enlace creado para $proj" -ForegroundColor Green
+$ProjectName = Split-Path -Leaf $TargetProject
+Write-Host "Configurando entorno para: $ProjectName" -ForegroundColor Cyan
+
+# 1. Configurar Identidad Global (Idempotente)
+Write-Host "Verificando Git Global..." -ForegroundColor Cyan
+if ((git config --global user.name) -ne "modusaxon-hub") {
+    git config --global user.name "modusaxon-hub"
+    git config --global user.email "modusaxon@gmail.com"
+    git config --global credential.helper manager
+}
+
+# 2. Configurar Directorio Seguro Específico
+Write-Host "Añadiendo directorio seguro..." -ForegroundColor Cyan
+git config --global --add safe.directory $TargetProject
+
+# 3. Enlaces Simbólicos Dinámicos (Solo si aplica XAMPP)
+$xamppPath = "C:\xampp\htdocs\$ProjectName"
+if (Test-Path "C:\xampp\htdocs") {
+    Write-Host "Configurando Enlace Simbólico en XAMPP..." -ForegroundColor Cyan
+    if (!(Test-Path $xamppPath)) {
+        New-Item -ItemType SymbolicLink -Path $xamppPath -Target $TargetProject -Force
+        Write-Host "Enlace creado: $xamppPath -> $TargetProject" -ForegroundColor Green
     } else {
-        Write-Host "El enlace para $proj ya existe." -ForegroundColor Gray
+        Write-Host "El enlace en XAMPP ya existe." -ForegroundColor Gray
     }
 }
 
